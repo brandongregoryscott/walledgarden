@@ -1,0 +1,45 @@
+{
+    "name": "walledgarden",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev --turbopack",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint",
+        "lint:fix": "next lint --fix",
+        "format": "prettier . --check",
+        "format:fix": "prettier . --write"
+    },
+    "dependencies": {
+        "@react95/icons": "2.1.1",
+        "@reduxjs/toolkit": "2.5.1",
+        "classnames": "2.5.1",
+        "lodash": "4.17.21",
+        "next": "15.1.6",
+        "react": "19.0.0",
+        "react-dom": "19.0.0",
+        "react-redux": "9.2.0",
+        "react-use": "17.6.0"
+    },
+    "devDependencies": {
+        "@eslint/eslintrc": "3.2.0",
+        "@next/eslint-plugin-next": "15.3.2",
+        "@stylistic/eslint-plugin": "4.4.0",
+        "@types/lodash": "4.17.15",
+        "@types/node": "22.10.10",
+        "@types/react": "19.0.8",
+        "@types/react-dom": "19.0.3",
+        "@typescript-eslint/eslint-plugin": "8.32.1",
+        "eslint": "9.27.0",
+        "eslint-plugin-collation": "1.5.0",
+        "eslint-plugin-import": "2.31.0",
+        "eslint-plugin-perfectionist": "4.13.0",
+        "eslint-plugin-react": "7.37.5",
+        "eslint-plugin-react-hooks": "5.2.0",
+        "eslint-plugin-typescript-sort-keys": "3.3.0",
+        "prettier": "3.4.2",
+        "typescript": "5.7.3",
+        "typescript-eslint": "8.32.1"
+    }
+}

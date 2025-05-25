@@ -1,0 +1,31 @@
+html,
+body {
+    padding: 0;
+    margin: 0;
+}
+
+html,
+body,
+#__next {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+hr {
+    margin-block-start: unset;
+    margin-block-end: unset;
+    margin-inline-end: unset;
+    margin-inline-start: unset;
+    unicode-bidi: unset;
+}
+
+* {
+    box-sizing: border-box;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+summary::-webkit-details-marker {
+    display: none;
+}
