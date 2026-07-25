@@ -14,15 +14,15 @@
     },
     "dependencies": {
         "@react95/icons": "2.1.1",
-        "@reduxjs/toolkit": "2.5.1",
         "@tanstack/react-router": "1.163.2",
         "@tanstack/react-start": "1.163.2",
         "classnames": "2.5.1",
+        "immer": "11.1.15",
         "lodash-es": "4.17.21",
         "react": "19.2.8",
         "react-dom": "19.2.8",
-        "react-redux": "9.2.0",
-        "react-use": "17.6.0"
+        "react-use": "17.6.0",
+        "zustand": "5.0.14"
     },
     "devDependencies": {
         "@eslint/eslintrc": "3.2.0",

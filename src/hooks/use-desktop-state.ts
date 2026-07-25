@@ -1,19 +1,11 @@
-import { useAppDispatch, useAppSelector } from "@/hooks";
-import { clearActiveWindowAction } from "@/store";
-import { useCallback } from "react";
+import { useStore } from "@/store";
 
 const useDesktopState = () => {
-    const state = useAppSelector((state) => state.desktop);
-    const dispatch = useAppDispatch();
+    const activeWindowId = useStore((state) => state.activeWindowId);
+    const windows = useStore((state) => state.windows);
+    const clearActiveWindow = useStore((state) => state.clearActiveWindow);
 
-    const clearActiveWindow = useCallback(
-        function clearActiveWindow() {
-            dispatch(clearActiveWindowAction());
-        },
-        [dispatch]
-    );
-
-    return { ...state, clearActiveWindow };
+    return { activeWindowId, windows, clearActiveWindow };
 };
 
 export { useDesktopState };

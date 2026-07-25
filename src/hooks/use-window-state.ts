@@ -1,94 +1,83 @@
 "use client";
-import { useAppDispatch, useAppSelector, useBreakpoint } from "@/hooks";
-import {
-    closeWindowAction,
-    openWindowAction,
-    setActiveWindowAction,
-    setMaximizedAction,
-    setMinimizedAction,
-    setWindowPositionAction,
-    setWindowSizeAction,
-    toggleMaximizedAction,
-    toggleMinimizedAction,
-} from "@/store";
+import { useBreakpoint } from "@/hooks";
+import { store, useStore } from "@/store";
 import type { Dimensions, Position, WindowState } from "@/types";
 import { useCallback, useMemo } from "react";
 
 const useWindowState = (id: string) => {
-    const _state: undefined | WindowState = useAppSelector(
-        (state) => state.desktop.windows[id]
+    const _state: undefined | WindowState = useStore(
+        (state) => state.windows[id]
     );
-    const dispatch = useAppDispatch();
     const breakpoint = useBreakpoint();
 
     const open = useCallback(
         function open() {
-            dispatch(openWindowAction({ id }));
+            store.getState().openWindow(id);
         },
-        [dispatch, id]
+        [id]
     );
 
     const activate = useCallback(
         function activate() {
-            dispatch(setActiveWindowAction({ id }));
+            store.getState().setActiveWindow(id);
         },
-        [dispatch, id]
+        [id]
     );
 
     const minimize = useCallback(
         function minimize() {
-            dispatch(setMinimizedAction({ id, minimized: true }));
+            store.getState().setMinimized(id, true);
         },
-        [dispatch, id]
+        [id]
     );
 
     const maximize = useCallback(
         function maximize() {
-            dispatch(setMaximizedAction({ id, maximized: true }));
+            store.getState().setMaximized(id, true);
         },
-        [dispatch, id]
+        [id]
     );
 
     const toggleMaximized = useCallback(
-        function maximize() {
-            dispatch(toggleMaximizedAction({ id }));
+        function toggleMaximized() {
+            store.getState().toggleMaximized(id);
         },
-        [dispatch, id]
+        [id]
     );
 
     const unminimize = useCallback(
         function unminimize() {
-            dispatch(setMinimizedAction({ id, minimized: false }));
+            store.getState().setMinimized(id, false);
         },
-        [dispatch, id]
+        [id]
     );
 
     const toggleMinimized = useCallback(
         function toggleMinimized() {
-            dispatch(toggleMinimizedAction({ id }));
+            store.getState().toggleMinimized(id);
         },
-        [dispatch, id]
+        [id]
     );
 
     const close = useCallback(
         function close() {
-            dispatch(closeWindowAction({ id }));
+            store.getState().closeWindow(id);
         },
-        [dispatch, id]
+        [id]
     );
 
     const setPosition = useCallback(
         function setPosition(position: Position) {
-            dispatch(setWindowPositionAction({ id, position }));
+            store.getState().setWindowPosition(id, position);
         },
-        [dispatch, id]
+        [id]
     );
 
     const setSize = useCallback(
         function setSize(size: Dimensions) {
-            dispatch(setWindowSizeAction({ id, size }));
+            store.getState().setWindowSize(id, size);
         },
-        [dispatch, id]
+        [id]
     );
 
     const state: undefined | WindowState = useMemo(() => {
