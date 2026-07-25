@@ -21,7 +21,7 @@ const eslintConfig = defineConfig([
                 tsconfigRootDir: import.meta.dirname,
             },
         },
-        settings: { react: { version: "19.0" } },
+        settings: { react: { version: "19.2" } },
         plugins: {
             "@stylistic": stylisticPlugin,
             "@typescript-eslint": typescriptEslintPlugin,

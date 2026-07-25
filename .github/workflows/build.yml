@@ -13,11 +13,10 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Setup node 20
-              uses: actions/setup-node@v4
+            - uses: actions/setup-node@v4
               with:
                   cache: "npm"
-                  node-version: 22.6.0
+                  node-version: 26.5.0
 
             - name: npm ci
               run: npm ci
