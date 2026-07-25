@@ -8,13 +8,21 @@ import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import typescriptEslintPlugin from "@typescript-eslint/eslint-plugin";
 import typescriptEslint from "typescript-eslint";
-import nextPlugin from "@next/eslint-plugin-next";
-
 const eslintConfig = defineConfig([
     {
-        languageOptions: { parser: typescriptEslint.parser },
+        ignores: ["dist/**", "node_modules/**", "src/generated/**"],
+    },
+    {
+        files: ["src/**/*.ts", "src/**/*.tsx", "*.ts", "*.tsx"],
+        languageOptions: {
+            parser: typescriptEslint.parser,
+            parserOptions: {
+                projectService: true,
+                tsconfigRootDir: import.meta.dirname,
+            },
+        },
+        settings: { react: { version: "19.0" } },
         plugins: {
-            "@next/next": nextPlugin,
             "@stylistic": stylisticPlugin,
             "@typescript-eslint": typescriptEslintPlugin,
             collation: collationPlugin,
@@ -90,5 +98,4 @@ const eslintConfig = defineConfig([
     },
 ]);
 
-// eslint-disable-next-line collation/no-default-export -- This needs to be a default export
 export default eslintConfig;

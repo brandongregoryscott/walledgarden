@@ -1,6 +1,6 @@
 import type { DenormalizedRelease, Release, Track } from "@/types";
 import { toSeconds } from "@/utils/track-utils";
-import { sortBy } from "lodash";
+import { sortBy } from "lodash-es";
 
 const THE_NEWS: Release = {
     id: "the-news",

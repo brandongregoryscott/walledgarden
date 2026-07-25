@@ -3,7 +3,7 @@ import { useDoubleTap } from "@/hooks";
 import type { DenormalizedRelease } from "@/types";
 import { cn } from "@/utils/classnames";
 import { formatDate } from "@/utils/date-utils";
-import { first } from "lodash";
+import { first } from "lodash-es";
 
 interface MediaPlayerReleaseItemProps {
     activeTrackId: string | undefined;

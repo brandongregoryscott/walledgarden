@@ -4,7 +4,7 @@ import {
     TRACKS,
 } from "@/constants/releases";
 import { findById } from "@/utils/collection-utils";
-import { first } from "lodash";
+import { first } from "lodash-es";
 
 const getTrackUrl = (trackId: string): string | undefined => {
     if (trackId === undefined) {

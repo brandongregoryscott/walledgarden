@@ -1,5 +1,4 @@
 export * from "./button";
-export * from "./client-only";
 export * from "./clock";
 export * from "./hr";
 export * from "./media-player";

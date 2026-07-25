@@ -37,11 +37,9 @@ const Box = forwardRef(
                 ? `${remainingProps.className} ${cssClassName}`
                 : cssClassName;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- We don't really care what `remainingProps` is here, we just want to attach the prop
         (remainingProps as any).className = className;
 
         if (ref) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- We don't really care what `remainingProps` is here, we just want to attach the prop
             (remainingProps as any).ref = ref;
         }
 
