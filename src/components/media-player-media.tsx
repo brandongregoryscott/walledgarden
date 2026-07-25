@@ -1,6 +1,6 @@
 import type { Dimensions } from "@/types";
 import { getTrackMediaUrl, getTrackUrl } from "@/utils/track-utils";
-import { isEmpty } from "lodash";
+import { isEmpty } from "lodash-es";
 import { useEffect, useMemo, useRef } from "react";
 
 interface MediaPlayerArtworkProps extends Partial<Dimensions> {

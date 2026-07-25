@@ -3,7 +3,7 @@ import type { Dimensions, Position, WindowState } from "@/types";
 import { findById } from "@/utils/collection-utils";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
-import { cloneDeep } from "lodash";
+import { cloneDeep } from "lodash-es";
 
 interface DesktopState {
     activeWindowId: string | undefined;

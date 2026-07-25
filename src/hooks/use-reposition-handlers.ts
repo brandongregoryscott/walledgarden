@@ -1,5 +1,5 @@
 import type { Position } from "@/types";
-import { first } from "lodash";
+import { first } from "lodash-es";
 import type React from "react";
 import { useCallback, useRef } from "react";
 

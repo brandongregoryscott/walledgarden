@@ -10,5 +10,4 @@ type BreakpointName = keyof typeof BREAKPOINTS;
 const useBreakpoint = createBreakpoint(BREAKPOINTS) as () => BreakpointName;
 
 export type { BreakpointName };
-
 export { useBreakpoint };
