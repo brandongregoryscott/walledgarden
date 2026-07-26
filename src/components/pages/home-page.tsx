@@ -4,6 +4,7 @@ import {
     StartButton,
     Hr,
     Shortcut,
+    MinimizeAnimator,
 } from "@/components";
 import { MediaPlayer } from "@/components/media-player";
 import { MEDIA_PLAYER } from "@/constants/windows";
@@ -43,6 +44,7 @@ const HomePage: React.FC = () => {
                 onOpen={openMediaPlayer}
             />
             {MEDIA_PLAYER.id in windows && <MediaPlayer />}
+            <MinimizeAnimator />
             <TaskBar>
                 <StartButton />
                 <Hr vertical={true} />

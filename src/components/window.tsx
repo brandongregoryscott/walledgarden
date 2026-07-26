@@ -6,10 +6,11 @@ import {
     useRepositionHandlers,
     useWindowState,
 } from "@/hooks";
+import { store } from "@/store";
 import { cn } from "@/utils/classnames";
 import { findById } from "@/utils/collection-utils";
 import type { CSSProperties, PropsWithChildren } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 
 interface WindowProps extends PropsWithChildren {
     id: string;
@@ -18,6 +19,7 @@ interface WindowProps extends PropsWithChildren {
 
 const Window: React.FC<WindowProps> = (props) => {
     const { title, children, id } = props;
+    const windowRef = useRef<HTMLDivElement>(null);
     const { activeWindowId } = useDesktopState();
     const {
         state,
@@ -76,9 +78,35 @@ const Window: React.FC<WindowProps> = (props) => {
     const handleMinimizeClick = useCallback(
         function handleMinimizeClick(event: React.MouseEvent) {
             event.stopPropagation();
+
+            const windowRect = windowRef.current?.getBoundingClientRect();
+            const buttonEl = document.querySelector(
+                `[data-taskbar-window="${id}"]`
+            );
+            const buttonRect = buttonEl?.getBoundingClientRect();
+
+            if (windowRect && buttonRect) {
+                store.getState().setMinimizeAnimation({
+                    windowId: id,
+                    fromRect: {
+                        x: windowRect.x,
+                        y: windowRect.y,
+                        width: windowRect.width,
+                        height: windowRect.height,
+                    },
+                    toRect: {
+                        x: buttonRect.x,
+                        y: buttonRect.y,
+                        width: buttonRect.width,
+                        height: buttonRect.height,
+                    },
+                    direction: "minimize",
+                });
+            }
+
             minimize();
         },
-        [minimize]
+        [id, minimize]
     );
 
     const handleMaximizeClick = useCallback(
@@ -106,7 +134,7 @@ const Window: React.FC<WindowProps> = (props) => {
     );
 
     return (
-        <div className="window" id={id} onClick={activate} style={style}>
+        <div className="window" id={id} ref={windowRef} onClick={activate} style={style}>
             {!maximized && <SizeControl onResize={setSize} />}
 
             <div
