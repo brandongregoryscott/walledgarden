@@ -70,6 +70,7 @@ const Window: React.FC<WindowProps> = (props) => {
     const animateMinimize = useCallback(async () => {
         const element = windowRef.current;
         if (element == null) {
+            animationRef.current = null;
             return;
         }
 
@@ -80,6 +81,7 @@ const Window: React.FC<WindowProps> = (props) => {
         const buttonRect = buttonElement?.getBoundingClientRect();
 
         if (buttonRect == null || buttonRect.width === 0) {
+            animationRef.current = null;
             storeMinimize();
             return;
         }
@@ -87,6 +89,8 @@ const Window: React.FC<WindowProps> = (props) => {
         const titleBarHeight = measureTitleBarHeight();
 
         setIsAnimating(true);
+
+        animationRef.current?.cancel();
 
         const animation = element.animate(
             [
@@ -107,17 +111,28 @@ const Window: React.FC<WindowProps> = (props) => {
         );
 
         animationRef.current = animation;
-        await animation.finished;
+        try {
+            await animation.finished;
+        } catch {
+            // Animation was canceled — continue to clean up
+        }
+        animation.cancel();
 
         animationRef.current = null;
         setIsAnimating(false);
-        storeMinimize();
-    }, [id, storeMinimize, measureTitleBarHeight]);
+    }, [id, measureTitleBarHeight]);
 
     const animateRestore = useCallback(async (buttonRect: DOMRect) => {
         const element = windowRef.current;
         const target = stateRef.current;
-        if (element == null || target == null) {
+        if (
+            element == null ||
+            target == null ||
+            buttonRect.width === 0 ||
+            buttonRect.height === 0
+        ) {
+            // Degenerate button rect — React already shows the window
+            // at the stored position from the setMinimized call.
             return;
         }
 
@@ -130,6 +145,8 @@ const Window: React.FC<WindowProps> = (props) => {
         element.style.display = "";
 
         setIsAnimating(true);
+
+        animationRef.current?.cancel();
 
         const animation = element.animate(
             [
@@ -150,12 +167,20 @@ const Window: React.FC<WindowProps> = (props) => {
         );
 
         animationRef.current = animation;
-        await animation.finished;
+        try {
+            await animation.finished;
+        } catch {
+            // Animation was canceled — continue to clean up
+        }
+        animation.cancel();
 
-        element.style.left = "";
-        element.style.top = "";
-        element.style.width = "";
-        element.style.height = "";
+        // Set final position explicitly — React's style diff will skip
+        // re-applying these during re-render (it sees same JS values),
+        // so the DOM must already have the correct inline styles.
+        element.style.left = `${target.x}px`;
+        element.style.top = `${target.y}px`;
+        element.style.width = `${target.width}px`;
+        element.style.height = `${target.height}px`;
 
         animationRef.current = null;
         setIsAnimating(false);
@@ -173,9 +198,10 @@ const Window: React.FC<WindowProps> = (props) => {
     const handleMinimizeClick = useCallback(
         function handleMinimizeClick(event: React.MouseEvent) {
             event.stopPropagation();
+            storeMinimize();
             animateMinimize();
         },
-        [animateMinimize]
+        [animateMinimize, storeMinimize]
     );
 
     const handleMaximizeClick = useCallback(
