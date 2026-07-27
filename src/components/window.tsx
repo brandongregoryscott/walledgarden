@@ -8,6 +8,7 @@ import {
 } from "@/hooks";
 import { cn } from "@/utils/classnames";
 import { findById } from "@/utils/collection-utils";
+import type { WindowState } from "@/types";
 import type { CSSProperties, PropsWithChildren } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -26,29 +27,15 @@ const KEYFRAME_OPTIONS: KeyframeAnimationOptions = {
     fill: "forwards",
 };
 
-const Window: React.FC<WindowProps> = (props) => {
-    const { title, children, id } = props;
+function useWindowAnimation(
+    id: string,
+    storeMinimize: () => void,
+    state: undefined | WindowState
+) {
     const windowRef = useRef<HTMLDivElement>(null);
     const animationRef = useRef<Animation | null>(null);
-    const { activeWindowId } = useDesktopState();
-    const {
-        state,
-        minimize: storeMinimize,
-        setPosition,
-        activate,
-        close,
-        setSize,
-        toggleMaximized,
-    } = useWindowState(id);
-    const definition = findById(WINDOW_DEFINITIONS, id);
-    const { minHeight, minWidth } = definition ?? {};
-    const { minimized, width, height, x, y, maximized = false } = state ?? {};
-    const breakpoint = useBreakpoint();
-
     const [isAnimating, setIsAnimating] = useState(false);
-
     const titleBarHeightRef = useRef(DEFAULT_TITLE_BAR_HEIGHT);
-
     const stateRef = useRef(state);
     stateRef.current = state;
 
@@ -120,7 +107,7 @@ const Window: React.FC<WindowProps> = (props) => {
 
         animationRef.current = null;
         setIsAnimating(false);
-    }, [id, measureTitleBarHeight]);
+    }, [id, storeMinimize, measureTitleBarHeight]);
 
     const animateRestore = useCallback(async (buttonRect: DOMRect) => {
         const element = windowRef.current;
@@ -186,6 +173,57 @@ const Window: React.FC<WindowProps> = (props) => {
         setIsAnimating(false);
     }, []);
 
+    useEffect(() => {
+        const element = windowRef.current;
+        if (element == null) {
+            return;
+        }
+
+        const handleMinimize = () => {
+            animateMinimize();
+        };
+
+        const handleRestore = (event: Event) => {
+            const { buttonRect } = (
+                event as CustomEvent<{ buttonRect: DOMRect }>
+            ).detail;
+            animateRestore(buttonRect);
+        };
+
+        element.addEventListener("minimize-window", handleMinimize);
+        element.addEventListener("restore-window", handleRestore);
+        return () => {
+            element.removeEventListener("minimize-window", handleMinimize);
+            element.removeEventListener("restore-window", handleRestore);
+        };
+    }, [animateMinimize, animateRestore]);
+
+    return { windowRef, isAnimating, animateMinimize };
+}
+
+const Window: React.FC<WindowProps> = (props) => {
+    const { title, children, id } = props;
+    const { activeWindowId } = useDesktopState();
+    const {
+        state,
+        minimize: storeMinimize,
+        setPosition,
+        activate,
+        close,
+        setSize,
+        toggleMaximized,
+    } = useWindowState(id);
+    const definition = findById(WINDOW_DEFINITIONS, id);
+    const { minHeight, minWidth } = definition ?? {};
+    const { minimized, width, height, x, y, maximized = false } = state ?? {};
+    const breakpoint = useBreakpoint();
+
+    const { windowRef, isAnimating, animateMinimize } = useWindowAnimation(
+        id,
+        storeMinimize,
+        state
+    );
+
     const {
         handleMouseDown,
         handleMouseMove,
@@ -234,31 +272,6 @@ const Window: React.FC<WindowProps> = (props) => {
         },
         []
     );
-
-    useEffect(() => {
-        const element = windowRef.current;
-        if (element == null) {
-            return;
-        }
-
-        const handleMinimize = () => {
-            animateMinimize();
-        };
-
-        const handleRestore = (event: Event) => {
-            const { buttonRect } = (
-                event as CustomEvent<{ buttonRect: DOMRect }>
-            ).detail;
-            animateRestore(buttonRect);
-        };
-
-        element.addEventListener("minimize-window", handleMinimize);
-        element.addEventListener("restore-window", handleRestore);
-        return () => {
-            element.removeEventListener("minimize-window", handleMinimize);
-            element.removeEventListener("restore-window", handleRestore);
-        };
-    }, [animateMinimize, animateRestore]);
 
     const style: CSSProperties = useMemo(() => {
         return {
