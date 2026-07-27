@@ -187,6 +187,13 @@ li.media-player-list-item {
     overflow: hidden;
 }
 
+/* Keep the title bar blue during animation even if the store cleared
+   activeWindowId — taskbar-button minimize toggles the store before the
+   animation finishes. */
+.window[data-animating="true"] .title-bar.inactive {
+    background: linear-gradient(90deg, navy, #1084d0);
+}
+
 .window[data-animating="true"] .title-bar-text {
     flex-shrink: 0;
     overflow: hidden;
