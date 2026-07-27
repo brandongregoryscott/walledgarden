@@ -13,7 +13,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>((props, ref) => {
     const { children, active, className, ...rest } = props;
 
     return (
-        <button ref={ref} className={cn(className, { active })} {...rest}>
+        <button className={cn(className, { active })} ref={ref} {...rest}>
             {children}
         </button>
     );

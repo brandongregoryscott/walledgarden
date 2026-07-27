@@ -15,50 +15,48 @@ const TaskBarButton: React.FC<TaskBarButtonProps> = (props) => {
     const { activeWindowId } = useDesktopState();
     const title = findById(WINDOW_DEFINITIONS, id)?.title;
     const { activate, toggleMinimized } = useWindowState(id);
-    if (title === undefined) {
-        return;
-    }
-
     const isActive = id === activeWindowId;
 
     const handleClick = useCallback(() => {
         if (isActive) {
-            // Minimize: let the window animate itself, then toggle the store.
-            const windowEl = document.getElementById(id);
-            windowEl?.dispatchEvent(new CustomEvent("minimize-window"));
+            document
+                .getElementById(id)
+                ?.dispatchEvent(new CustomEvent("minimize-window"));
             toggleMinimized();
-        } else {
-            const windowState = store.getState().windows[id];
-            if (windowState?.minimized) {
-                // Restore: unminimize in the store, then tell the window to
-                // animate in from the button position.
-                const buttonRect =
-                    buttonRef.current?.getBoundingClientRect();
-
-                if (buttonRect) {
-                    store.getState().setMinimized(id, false);
-                    const windowEl = document.getElementById(id);
-                    windowEl?.dispatchEvent(
-                        new CustomEvent("restore-window", {
-                            detail: { buttonRect },
-                        })
-                    );
-                } else {
-                    activate();
-                }
-            } else {
-                activate();
-            }
+            return;
         }
+
+        const windowState = store.getState().windows[id];
+        if (!windowState?.minimized) {
+            activate();
+            return;
+        }
+
+        const buttonRect = buttonRef.current?.getBoundingClientRect();
+        if (buttonRect == null) {
+            activate();
+            return;
+        }
+
+        store.getState().setMinimized(id, false);
+        document.getElementById(id)?.dispatchEvent(
+            new CustomEvent("restore-window", {
+                detail: { buttonRect },
+            })
+        );
     }, [isActive, id, toggleMinimized, activate]);
+
+    if (title === undefined) {
+        return;
+    }
 
     return (
         <Button
-            ref={buttonRef}
             active={isActive}
             className="task-bar"
             data-taskbar-window={id}
-            onClick={handleClick}>
+            onClick={handleClick}
+            ref={buttonRef}>
             <span style={{ minWidth: 0 }}>{title}</span>
         </Button>
     );
