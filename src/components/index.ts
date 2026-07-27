@@ -5,7 +5,6 @@ export * from "./media-player";
 export * from "./media-player-media";
 export * from "./media-player-release-item";
 export * from "./media-player-track-item";
-export * from "./minimize-animator";
 export * from "./size-control";
 export * from "./shortcut";
 export * from "./start-button";

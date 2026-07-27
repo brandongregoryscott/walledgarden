@@ -4,22 +4,13 @@ import { findById } from "@/utils/collection-utils";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
-interface MinimizeAnimationState {
-    windowId: string;
-    fromRect: { x: number; y: number; width: number; height: number };
-    toRect: { x: number; y: number; width: number; height: number };
-    direction: "minimize" | "restore";
-}
-
 interface DesktopStore {
     activeWindowId: string | undefined;
     clearActiveWindow: () => void;
     closeWindow: (id: string) => void;
-    minimizeAnimation: MinimizeAnimationState | null;
     openWindow: (id: string) => void;
     setActiveWindow: (id: string) => void;
     setMaximized: (id: string, maximized: boolean) => void;
-    setMinimizeAnimation: (animation: MinimizeAnimationState | null) => void;
     setMinimized: (id: string, minimized: boolean) => void;
     setWindowPosition: (id: string, position: Position) => void;
     setWindowSize: (id: string, size: Dimensions) => void;
@@ -31,7 +22,6 @@ interface DesktopStore {
 const store = create<DesktopStore>()(
     immer((set) => ({
         activeWindowId: MEDIA_PLAYER.id,
-        minimizeAnimation: null,
         windows: {
             [MEDIA_PLAYER.id]: MEDIA_PLAYER.defaultState,
         },
@@ -77,11 +67,6 @@ const store = create<DesktopStore>()(
         setMaximized: (id, maximized) =>
             set((state) => {
                 ensureWindow(id, state).maximized = maximized;
-            }),
-
-        setMinimizeAnimation: (animation) =>
-            set((state) => {
-                state.minimizeAnimation = animation;
             }),
 
         setMinimized: (id, minimized) =>
@@ -148,4 +133,4 @@ function ensureWindow(id: string, state: DesktopStore): WindowState {
 const useStore = store;
 
 export { store, useStore };
-export type { DesktopStore, MinimizeAnimationState };
+export type { DesktopStore };

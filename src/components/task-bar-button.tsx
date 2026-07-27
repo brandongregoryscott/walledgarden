@@ -23,64 +23,26 @@ const TaskBarButton: React.FC<TaskBarButtonProps> = (props) => {
 
     const handleClick = useCallback(() => {
         if (isActive) {
-            // Minimize: capture rects, dispatch animation, then minimize
+            // Minimize: let the window animate itself, then toggle the store.
             const windowEl = document.getElementById(id);
-            const windowRect = windowEl?.getBoundingClientRect();
-            const buttonRect = buttonRef.current?.getBoundingClientRect();
-
-            if (windowRect && buttonRect) {
-                store.getState().setMinimizeAnimation({
-                    windowId: id,
-                    fromRect: {
-                        x: windowRect.x,
-                        y: windowRect.y,
-                        width: windowRect.width,
-                        height: windowRect.height,
-                    },
-                    toRect: {
-                        x: buttonRect.x,
-                        y: buttonRect.y,
-                        width: buttonRect.width,
-                        height: buttonRect.height,
-                    },
-                    direction: "minimize",
-                });
-            }
-
+            windowEl?.dispatchEvent(new CustomEvent("minimize-window"));
             toggleMinimized();
         } else {
             const windowState = store.getState().windows[id];
             if (windowState?.minimized) {
-                // Restore: capture button rect, compute target, dispatch animation
-                const buttonRect = buttonRef.current?.getBoundingClientRect();
+                // Restore: unminimize in the store, then tell the window to
+                // animate in from the button position.
+                const buttonRect =
+                    buttonRef.current?.getBoundingClientRect();
 
-                if (windowState && buttonRect) {
-                    const targetRect = windowState.maximized
-                        ? {
-                              x: 0,
-                              y: 0,
-                              width: window.innerWidth,
-                              height: window.innerHeight - 30,
-                          }
-                        : {
-                              x: windowState.x!,
-                              y: windowState.y!,
-                              width: windowState.width!,
-                              height: windowState.height!,
-                          };
-
-                    store.getState().setMinimizeAnimation({
-                        windowId: id,
-                        fromRect: {
-                            x: buttonRect.x,
-                            y: buttonRect.y,
-                            width: buttonRect.width,
-                            height: buttonRect.height,
-                        },
-                        toRect: targetRect,
-                        direction: "restore",
-                    });
-                    // MinimizeAnimator.onfinish calls setMinimized(false)
+                if (buttonRect) {
+                    store.getState().setMinimized(id, false);
+                    const windowEl = document.getElementById(id);
+                    windowEl?.dispatchEvent(
+                        new CustomEvent("restore-window", {
+                            detail: { buttonRect },
+                        })
+                    );
                 } else {
                     activate();
                 }
