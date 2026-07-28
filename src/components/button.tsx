@@ -1,5 +1,6 @@
 import { cn } from "@/utils/classnames";
 import type { HTMLAttributes } from "react";
+import { forwardRef } from "react";
 
 type ButtonProps = {
     /**
@@ -8,14 +9,16 @@ type ButtonProps = {
     active?: boolean;
 } & HTMLAttributes<HTMLButtonElement>;
 
-const Button: React.FC<ButtonProps> = (props) => {
+const Button = forwardRef<HTMLButtonElement, ButtonProps>((props, ref) => {
     const { children, active, className, ...rest } = props;
 
     return (
-        <button className={cn(className, { active })} {...rest}>
+        <button className={cn(className, { active })} ref={ref} {...rest}>
             {children}
         </button>
     );
-};
+});
+
+Button.displayName = "Button";
 
 export { Button };

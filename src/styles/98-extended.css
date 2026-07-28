@@ -164,6 +164,42 @@ li.media-player-list-item {
     min-height: 28px;
 }
 
+/* During minimize/restore animation, show only the title bar — the real
+   Win98 animation doesn't display window chrome, body, or buttons. */
+.window[data-animating="true"] {
+    background: transparent;
+    box-shadow: none;
+    overflow: hidden;
+    padding: 0;
+}
+
+.window[data-animating="true"] .window-body {
+    display: none;
+}
+
+.window[data-animating="true"] .title-bar-controls {
+    display: none;
+}
+
+/* Prevent the title bar text from flex-shrinking as the container narrows
+   during animation — clip it instead of compressing it. */
+.window[data-animating="true"] .title-bar {
+    overflow: hidden;
+}
+
+/* Keep the title bar blue during animation even if the store cleared
+   activeWindowId — taskbar-button minimize toggles the store before the
+   animation finishes. */
+.window[data-animating="true"] .title-bar.inactive {
+    background: linear-gradient(90deg, navy, #1084d0);
+}
+
+.window[data-animating="true"] .title-bar-text {
+    flex-shrink: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
 .window-body {
     height: 100%;
     max-height: calc(100% - 36px);

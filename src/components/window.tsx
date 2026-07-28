@@ -8,12 +8,197 @@ import {
 } from "@/hooks";
 import { cn } from "@/utils/classnames";
 import { findById } from "@/utils/collection-utils";
+import type { WindowState } from "@/types";
 import type { CSSProperties, PropsWithChildren } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface WindowProps extends PropsWithChildren {
     id: string;
     title?: string;
+}
+
+const DEFAULT_TITLE_BAR_HEIGHT = 22;
+const ANIMATION_DURATION = 300;
+const ANIMATION_EASING = "steps(5, end)";
+
+const KEYFRAME_OPTIONS: KeyframeAnimationOptions = {
+    duration: ANIMATION_DURATION,
+    easing: ANIMATION_EASING,
+    fill: "forwards",
+};
+
+function useWindowAnimation(
+    id: string,
+    storeMinimize: () => void,
+    state: undefined | WindowState
+) {
+    const windowRef = useRef<HTMLDivElement>(null);
+    const animationRef = useRef<Animation | null>(null);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const titleBarHeightRef = useRef(DEFAULT_TITLE_BAR_HEIGHT);
+    const stateRef = useRef(state);
+    stateRef.current = state;
+
+    useEffect(() => {
+        return function cleanup() {
+            animationRef.current?.cancel();
+        };
+    }, []);
+
+    const measureTitleBarHeight = useCallback(() => {
+        const titleBar =
+            windowRef.current?.querySelector<HTMLElement>(".title-bar");
+        if (titleBar != null) {
+            titleBarHeightRef.current = titleBar.getBoundingClientRect().height;
+        }
+        return titleBarHeightRef.current;
+    }, []);
+
+    const animateMinimize = useCallback(async () => {
+        const element = windowRef.current;
+        if (element == null) {
+            animationRef.current = null;
+            return;
+        }
+
+        const windowRect = element.getBoundingClientRect();
+        const buttonElement = document.querySelector(
+            `[data-taskbar-window="${id}"]`
+        );
+        const buttonRect = buttonElement?.getBoundingClientRect();
+
+        if (buttonRect == null || buttonRect.width === 0) {
+            animationRef.current = null;
+            storeMinimize();
+            return;
+        }
+
+        const titleBarHeight = measureTitleBarHeight();
+
+        setIsAnimating(true);
+
+        animationRef.current?.cancel();
+
+        const animation = element.animate(
+            [
+                {
+                    left: `${windowRect.x}px`,
+                    top: `${windowRect.y}px`,
+                    width: `${windowRect.width}px`,
+                    height: `${windowRect.height}px`,
+                },
+                {
+                    left: `${buttonRect.x}px`,
+                    top: `${buttonRect.y}px`,
+                    width: `${buttonRect.width}px`,
+                    height: `${titleBarHeight}px`,
+                },
+            ],
+            KEYFRAME_OPTIONS
+        );
+
+        animationRef.current = animation;
+        try {
+            await animation.finished;
+        } catch {
+            // Animation was canceled — continue to clean up
+        }
+        animation.cancel();
+
+        animationRef.current = null;
+        setIsAnimating(false);
+    }, [id, storeMinimize, measureTitleBarHeight]);
+
+    const animateRestore = useCallback(async (buttonRect: DOMRect) => {
+        const element = windowRef.current;
+        const target = stateRef.current;
+        if (
+            element == null ||
+            target == null ||
+            buttonRect.width === 0 ||
+            buttonRect.height === 0
+        ) {
+            // Degenerate button rect — React already shows the window
+            // at the stored position from the setMinimized call.
+            return;
+        }
+
+        const titleBarHeight = titleBarHeightRef.current;
+
+        element.style.left = `${buttonRect.x}px`;
+        element.style.top = `${buttonRect.y}px`;
+        element.style.width = `${buttonRect.width}px`;
+        element.style.height = `${titleBarHeight}px`;
+        element.style.display = "";
+
+        setIsAnimating(true);
+
+        animationRef.current?.cancel();
+
+        const animation = element.animate(
+            [
+                {
+                    left: `${buttonRect.x}px`,
+                    top: `${buttonRect.y}px`,
+                    width: `${buttonRect.width}px`,
+                    height: `${titleBarHeight}px`,
+                },
+                {
+                    left: `${target.x}px`,
+                    top: `${target.y}px`,
+                    width: `${target.width}px`,
+                    height: `${titleBarHeight}px`,
+                },
+            ],
+            KEYFRAME_OPTIONS
+        );
+
+        animationRef.current = animation;
+        try {
+            await animation.finished;
+        } catch {
+            // Animation was canceled — continue to clean up
+        }
+        animation.cancel();
+
+        // Set final position explicitly — React's style diff will skip
+        // re-applying these during re-render (it sees same JS values),
+        // so the DOM must already have the correct inline styles.
+        element.style.left = `${target.x}px`;
+        element.style.top = `${target.y}px`;
+        element.style.width = `${target.width}px`;
+        element.style.height = `${target.height}px`;
+
+        animationRef.current = null;
+        setIsAnimating(false);
+    }, []);
+
+    useEffect(() => {
+        const element = windowRef.current;
+        if (element == null) {
+            return;
+        }
+
+        const handleMinimize = () => {
+            animateMinimize();
+        };
+
+        const handleRestore = (event: Event) => {
+            const { buttonRect } = (
+                event as CustomEvent<{ buttonRect: DOMRect }>
+            ).detail;
+            animateRestore(buttonRect);
+        };
+
+        element.addEventListener("minimize-window", handleMinimize);
+        element.addEventListener("restore-window", handleRestore);
+        return () => {
+            element.removeEventListener("minimize-window", handleMinimize);
+            element.removeEventListener("restore-window", handleRestore);
+        };
+    }, [animateMinimize, animateRestore]);
+
+    return { windowRef, isAnimating, animateMinimize };
 }
 
 const Window: React.FC<WindowProps> = (props) => {
@@ -21,7 +206,7 @@ const Window: React.FC<WindowProps> = (props) => {
     const { activeWindowId } = useDesktopState();
     const {
         state,
-        minimize,
+        minimize: storeMinimize,
         setPosition,
         activate,
         close,
@@ -33,30 +218,12 @@ const Window: React.FC<WindowProps> = (props) => {
     const { minimized, width, height, x, y, maximized = false } = state ?? {};
     const breakpoint = useBreakpoint();
 
-    const style: CSSProperties = useMemo(() => {
-        return {
-            zIndex: id === activeWindowId ? 0 : undefined,
-            height,
-            width,
-            left: x,
-            top: y,
-            minHeight: breakpoint === "mobile" ? undefined : minHeight,
-            minWidth: breakpoint === "mobile" ? undefined : minWidth,
-            position: "fixed",
-            display: minimized === true ? "none" : undefined,
-        };
-    }, [
-        activeWindowId,
-        breakpoint,
-        height,
+    const { windowRef, isAnimating, animateMinimize } = useWindowAnimation(
         id,
-        minHeight,
-        minWidth,
-        minimized,
-        width,
-        x,
-        y,
-    ]);
+        storeMinimize,
+        state
+    );
+
     const {
         handleMouseDown,
         handleMouseMove,
@@ -66,19 +233,13 @@ const Window: React.FC<WindowProps> = (props) => {
         onReposition: setPosition,
     });
 
-    const handleActionButtonMouseDown = useCallback(
-        function handleActionButtonMouseDown(event: React.MouseEvent) {
-            event.stopPropagation();
-        },
-        []
-    );
-
     const handleMinimizeClick = useCallback(
         function handleMinimizeClick(event: React.MouseEvent) {
             event.stopPropagation();
-            minimize();
+            storeMinimize();
+            animateMinimize();
         },
-        [minimize]
+        [animateMinimize, storeMinimize]
     );
 
     const handleMaximizeClick = useCallback(
@@ -105,8 +266,46 @@ const Window: React.FC<WindowProps> = (props) => {
         [activate, handleMouseDown]
     );
 
+    const handleActionButtonMouseDown = useCallback(
+        function handleActionButtonMouseDown(event: React.MouseEvent) {
+            event.stopPropagation();
+        },
+        []
+    );
+
+    const style: CSSProperties = useMemo(() => {
+        return {
+            zIndex: id === activeWindowId ? 0 : undefined,
+            height,
+            width,
+            left: x,
+            top: y,
+            minHeight: isAnimating ? 0 : minHeight,
+            minWidth: isAnimating ? 0 : minWidth,
+            position: "fixed",
+            display: minimized === true && !isAnimating ? "none" : undefined,
+        };
+    }, [
+        activeWindowId,
+        height,
+        id,
+        isAnimating,
+        minHeight,
+        minWidth,
+        minimized,
+        width,
+        x,
+        y,
+    ]);
+
     return (
-        <div className="window" id={id} onClick={activate} style={style}>
+        <div
+            className="window"
+            data-animating={isAnimating ? "true" : undefined}
+            id={id}
+            onClick={activate}
+            ref={windowRef}
+            style={style}>
             {!maximized && <SizeControl onResize={setSize} />}
 
             <div
