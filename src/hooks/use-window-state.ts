@@ -1,4 +1,5 @@
 "use client";
+import { TASKBAR_HEIGHT } from "@/constants/layout";
 import { useBreakpoint } from "@/hooks";
 import { store, useStore } from "@/store";
 import type { Dimensions, Position, WindowState } from "@/types";
@@ -91,7 +92,7 @@ const useWindowState = (id: string) => {
                 x: 0,
                 y: 0,
                 width: window.innerWidth,
-                height: window.innerHeight - 30,
+                height: window.innerHeight - TASKBAR_HEIGHT,
             };
         }
 

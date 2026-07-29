@@ -1,4 +1,5 @@
 import { Clock, Hr } from "@/components";
+import { TASKBAR_HEIGHT } from "@/constants/layout";
 import type { PropsWithChildren } from "react";
 
 type TaskBarProps = PropsWithChildren;
@@ -9,7 +10,7 @@ const TaskBar: React.FC<TaskBarProps> = (props) => {
         <div
             className="task-bar"
             style={{
-                height: 30,
+                height: TASKBAR_HEIGHT,
                 width: "100%",
                 display: "flex",
                 alignItems: "center",
