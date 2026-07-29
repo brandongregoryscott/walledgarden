@@ -24,7 +24,7 @@ const ANIMATION_EASING = "steps(5, end)";
 const KEYFRAME_OPTIONS: KeyframeAnimationOptions = {
     duration: ANIMATION_DURATION,
     easing: ANIMATION_EASING,
-    fill: "forwards",
+    fill: "both",
 };
 
 function useWindowAnimation(
@@ -33,15 +33,17 @@ function useWindowAnimation(
     state: undefined | WindowState
 ) {
     const windowRef = useRef<HTMLDivElement>(null);
-    const animationRef = useRef<Animation | null>(null);
+    const generationRef = useRef(0);
     const [isAnimating, setIsAnimating] = useState(false);
     const titleBarHeightRef = useRef(DEFAULT_TITLE_BAR_HEIGHT);
     const stateRef = useRef(state);
     stateRef.current = state;
 
     useEffect(() => {
+        const element = windowRef.current;
         return function cleanup() {
-            animationRef.current?.cancel();
+            generationRef.current += 1;
+            element?.getAnimations().forEach((animation) => animation.cancel());
         };
     }, []);
 
@@ -57,10 +59,17 @@ function useWindowAnimation(
     const animateMinimize = useCallback(async () => {
         const element = windowRef.current;
         if (element == null) {
-            animationRef.current = null;
             return;
         }
 
+        const generation = ++generationRef.current;
+
+        setIsAnimating(true);
+
+        // Read the current visual position BEFORE cancelling the old
+        // animation — this ensures the new animation starts from where
+        // the element actually is, not from the stored position (which
+        // would cause a visible jump).
         const windowRect = element.getBoundingClientRect();
         const buttonElement = document.querySelector(
             `[data-taskbar-window="${id}"]`
@@ -68,16 +77,16 @@ function useWindowAnimation(
         const buttonRect = buttonElement?.getBoundingClientRect();
 
         if (buttonRect == null || buttonRect.width === 0) {
-            animationRef.current = null;
+            if (generation === generationRef.current) {
+                setIsAnimating(false);
+            }
             storeMinimize();
             return;
         }
 
         const titleBarHeight = measureTitleBarHeight();
 
-        setIsAnimating(true);
-
-        animationRef.current?.cancel();
+        element.getAnimations().forEach((a) => a.cancel());
 
         const animation = element.animate(
             [
@@ -97,15 +106,15 @@ function useWindowAnimation(
             KEYFRAME_OPTIONS
         );
 
-        animationRef.current = animation;
         try {
             await animation.finished;
         } catch {
-            // Animation was canceled — continue to clean up
+            // Cancelled by a newer animation.
         }
-        animation.cancel();
 
-        animationRef.current = null;
+        if (generation !== generationRef.current) {
+            return;
+        }
         setIsAnimating(false);
     }, [id, storeMinimize, measureTitleBarHeight]);
 
@@ -118,22 +127,21 @@ function useWindowAnimation(
             buttonRect.width === 0 ||
             buttonRect.height === 0
         ) {
-            // Degenerate button rect — React already shows the window
-            // at the stored position from the setMinimized call.
             return;
         }
 
-        const titleBarHeight = titleBarHeightRef.current;
-
-        element.style.left = `${buttonRect.x}px`;
-        element.style.top = `${buttonRect.y}px`;
-        element.style.width = `${buttonRect.width}px`;
-        element.style.height = `${titleBarHeight}px`;
-        element.style.display = "";
+        const generation = ++generationRef.current;
 
         setIsAnimating(true);
 
-        animationRef.current?.cancel();
+        const titleBarHeight = titleBarHeightRef.current;
+
+        // WAAPI's fill:"both" applies the first keyframe instantly —
+        // no need for manual position styles. Only display needs a
+        // manual override (WAAPI can't un-hide a display:none element).
+        element.style.display = "";
+
+        element.getAnimations().forEach((a) => a.cancel());
 
         const animation = element.animate(
             [
@@ -153,13 +161,15 @@ function useWindowAnimation(
             KEYFRAME_OPTIONS
         );
 
-        animationRef.current = animation;
         try {
             await animation.finished;
         } catch {
-            // Animation was canceled — continue to clean up
+            // Cancelled by a newer animation.
         }
-        animation.cancel();
+
+        if (generation !== generationRef.current) {
+            return;
+        }
 
         // Set final position explicitly — React's style diff will skip
         // re-applying these during re-render (it sees same JS values),
@@ -169,7 +179,6 @@ function useWindowAnimation(
         element.style.width = `${target.width}px`;
         element.style.height = `${target.height}px`;
 
-        animationRef.current = null;
         setIsAnimating(false);
     }, []);
 
