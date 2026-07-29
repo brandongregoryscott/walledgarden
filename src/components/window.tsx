@@ -1,4 +1,5 @@
 import { SizeControl } from "@/components";
+import { TASKBAR_HEIGHT } from "@/constants/layout";
 import { WINDOW_DEFINITIONS } from "@/constants/windows";
 import {
     useBreakpoint,
@@ -6,6 +7,7 @@ import {
     useRepositionHandlers,
     useWindowState,
 } from "@/hooks";
+import { store } from "@/store";
 import { cn } from "@/utils/classnames";
 import { findById } from "@/utils/collection-utils";
 import type { WindowState } from "@/types";
@@ -27,189 +29,6 @@ const KEYFRAME_OPTIONS: KeyframeAnimationOptions = {
     fill: "both",
 };
 
-function useWindowAnimation(
-    id: string,
-    storeMinimize: () => void,
-    state: undefined | WindowState
-) {
-    const windowRef = useRef<HTMLDivElement>(null);
-    const generationRef = useRef(0);
-    const [isAnimating, setIsAnimating] = useState(false);
-    const titleBarHeightRef = useRef(DEFAULT_TITLE_BAR_HEIGHT);
-    const stateRef = useRef(state);
-    stateRef.current = state;
-
-    useEffect(() => {
-        const element = windowRef.current;
-        return function cleanup() {
-            generationRef.current += 1;
-            element?.getAnimations().forEach((animation) => animation.cancel());
-        };
-    }, []);
-
-    const measureTitleBarHeight = useCallback(() => {
-        const titleBar =
-            windowRef.current?.querySelector<HTMLElement>(".title-bar");
-        if (titleBar != null) {
-            titleBarHeightRef.current = titleBar.getBoundingClientRect().height;
-        }
-        return titleBarHeightRef.current;
-    }, []);
-
-    const animateMinimize = useCallback(async () => {
-        const element = windowRef.current;
-        if (element == null) {
-            return;
-        }
-
-        const generation = ++generationRef.current;
-
-        setIsAnimating(true);
-
-        // Read the current visual position BEFORE cancelling the old
-        // animation — this ensures the new animation starts from where
-        // the element actually is, not from the stored position (which
-        // would cause a visible jump).
-        const windowRect = element.getBoundingClientRect();
-        const buttonElement = document.querySelector(
-            `[data-taskbar-window="${id}"]`
-        );
-        const buttonRect = buttonElement?.getBoundingClientRect();
-
-        if (buttonRect == null || buttonRect.width === 0) {
-            if (generation === generationRef.current) {
-                setIsAnimating(false);
-            }
-            storeMinimize();
-            return;
-        }
-
-        const titleBarHeight = measureTitleBarHeight();
-
-        element.getAnimations().forEach((a) => a.cancel());
-
-        const animation = element.animate(
-            [
-                {
-                    left: `${windowRect.x}px`,
-                    top: `${windowRect.y}px`,
-                    width: `${windowRect.width}px`,
-                    height: `${windowRect.height}px`,
-                },
-                {
-                    left: `${buttonRect.x}px`,
-                    top: `${buttonRect.y}px`,
-                    width: `${buttonRect.width}px`,
-                    height: `${titleBarHeight}px`,
-                },
-            ],
-            KEYFRAME_OPTIONS
-        );
-
-        try {
-            await animation.finished;
-        } catch {
-            // Cancelled by a newer animation.
-        }
-
-        if (generation !== generationRef.current) {
-            return;
-        }
-        setIsAnimating(false);
-    }, [id, storeMinimize, measureTitleBarHeight]);
-
-    const animateRestore = useCallback(async (buttonRect: DOMRect) => {
-        const element = windowRef.current;
-        const target = stateRef.current;
-        if (
-            element == null ||
-            target == null ||
-            buttonRect.width === 0 ||
-            buttonRect.height === 0
-        ) {
-            return;
-        }
-
-        const generation = ++generationRef.current;
-
-        setIsAnimating(true);
-
-        const titleBarHeight = titleBarHeightRef.current;
-
-        // WAAPI's fill:"both" applies the first keyframe instantly —
-        // no need for manual position styles. Only display needs a
-        // manual override (WAAPI can't un-hide a display:none element).
-        element.style.display = "";
-
-        element.getAnimations().forEach((a) => a.cancel());
-
-        const animation = element.animate(
-            [
-                {
-                    left: `${buttonRect.x}px`,
-                    top: `${buttonRect.y}px`,
-                    width: `${buttonRect.width}px`,
-                    height: `${titleBarHeight}px`,
-                },
-                {
-                    left: `${target.x}px`,
-                    top: `${target.y}px`,
-                    width: `${target.width}px`,
-                    height: `${titleBarHeight}px`,
-                },
-            ],
-            KEYFRAME_OPTIONS
-        );
-
-        try {
-            await animation.finished;
-        } catch {
-            // Cancelled by a newer animation.
-        }
-
-        if (generation !== generationRef.current) {
-            return;
-        }
-
-        // Set final position explicitly — React's style diff will skip
-        // re-applying these during re-render (it sees same JS values),
-        // so the DOM must already have the correct inline styles.
-        element.style.left = `${target.x}px`;
-        element.style.top = `${target.y}px`;
-        element.style.width = `${target.width}px`;
-        element.style.height = `${target.height}px`;
-
-        setIsAnimating(false);
-    }, []);
-
-    useEffect(() => {
-        const element = windowRef.current;
-        if (element == null) {
-            return;
-        }
-
-        const handleMinimize = () => {
-            animateMinimize();
-        };
-
-        const handleRestore = (event: Event) => {
-            const { buttonRect } = (
-                event as CustomEvent<{ buttonRect: DOMRect }>
-            ).detail;
-            animateRestore(buttonRect);
-        };
-
-        element.addEventListener("minimize-window", handleMinimize);
-        element.addEventListener("restore-window", handleRestore);
-        return () => {
-            element.removeEventListener("minimize-window", handleMinimize);
-            element.removeEventListener("restore-window", handleRestore);
-        };
-    }, [animateMinimize, animateRestore]);
-
-    return { windowRef, isAnimating, animateMinimize };
-}
-
 const Window: React.FC<WindowProps> = (props) => {
     const { title, children, id } = props;
     const { activeWindowId } = useDesktopState();
@@ -220,18 +39,26 @@ const Window: React.FC<WindowProps> = (props) => {
         activate,
         close,
         setSize,
-        toggleMaximized,
     } = useWindowState(id);
     const definition = findById(WINDOW_DEFINITIONS, id);
     const { minHeight, minWidth } = definition ?? {};
     const { minimized, width, height, x, y, maximized = false } = state ?? {};
     const breakpoint = useBreakpoint();
 
-    const { windowRef, isAnimating, animateMinimize } = useWindowAnimation(
-        id,
-        storeMinimize,
-        state
+    const storeSetMaximized = useCallback(
+        (maximized: boolean) => {
+            store.getState().setMaximized(id, maximized);
+        },
+        [id]
     );
+
+    const {
+        animateMaximize,
+        animateMinimize,
+        animateUnmaximize,
+        isAnimating,
+        windowRef,
+    } = useWindowAnimation(id, storeMinimize, storeSetMaximized, state);
 
     const {
         handleMouseDown,
@@ -252,11 +79,15 @@ const Window: React.FC<WindowProps> = (props) => {
     );
 
     const handleMaximizeClick = useCallback(
-        function handleMinimizeClick(event: React.MouseEvent) {
+        function handleMaximizeClick(event: React.MouseEvent) {
             event.stopPropagation();
-            toggleMaximized();
+            if (maximized) {
+                animateUnmaximize();
+            } else {
+                animateMaximize();
+            }
         },
-        [toggleMaximized]
+        [maximized, animateMaximize, animateUnmaximize]
     );
 
     const handleCloseClick = useCallback(
@@ -350,5 +181,319 @@ const Window: React.FC<WindowProps> = (props) => {
         </div>
     );
 };
+
+function useWindowAnimation(
+    id: string,
+    storeMinimize: () => void,
+    storeSetMaximized: (maximized: boolean) => void,
+    state: undefined | WindowState
+) {
+    const windowRef = useRef<HTMLDivElement>(null);
+    const generationRef = useRef(0);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const titleBarHeightRef = useRef(DEFAULT_TITLE_BAR_HEIGHT);
+    const stateRef = useRef(state);
+    stateRef.current = state;
+
+    useEffect(() => {
+        const element = windowRef.current;
+        return function cleanup() {
+            generationRef.current += 1;
+            element?.getAnimations().forEach((animation) => animation.cancel());
+        };
+    }, []);
+
+    const measureTitleBarHeight = useCallback(() => {
+        const titleBar =
+            windowRef.current?.querySelector<HTMLElement>(".title-bar");
+        if (titleBar != null) {
+            titleBarHeightRef.current = titleBar.getBoundingClientRect().height;
+        }
+        return titleBarHeightRef.current;
+    }, []);
+
+    const animateMinimize = useCallback(async () => {
+        const element = windowRef.current;
+        if (element == null) {
+            return;
+        }
+
+        const generation = ++generationRef.current;
+
+        setIsAnimating(true);
+
+        // Read the current visual position BEFORE cancelling the old
+        // animation — this ensures the new animation starts from where
+        // the element actually is, not from the stored position (which
+        // would cause a visible jump).
+        const windowRect = element.getBoundingClientRect();
+        const buttonElement = document.querySelector(
+            `[data-taskbar-window="${id}"]`
+        );
+        const buttonRect = buttonElement?.getBoundingClientRect();
+
+        if (buttonRect == null || buttonRect.width === 0) {
+            if (generation === generationRef.current) {
+                setIsAnimating(false);
+            }
+            storeMinimize();
+            return;
+        }
+
+        const titleBarHeight = measureTitleBarHeight();
+
+        element.getAnimations().forEach((animation) => animation.cancel());
+
+        const animation = element.animate(
+            [
+                {
+                    left: `${windowRect.x}px`,
+                    top: `${windowRect.y}px`,
+                    width: `${windowRect.width}px`,
+                    height: `${windowRect.height}px`,
+                },
+                {
+                    left: `${buttonRect.x}px`,
+                    top: `${buttonRect.y}px`,
+                    width: `${buttonRect.width}px`,
+                    height: `${titleBarHeight}px`,
+                },
+            ],
+            KEYFRAME_OPTIONS
+        );
+
+        try {
+            await animation.finished;
+        } catch {
+            // Cancelled by a newer animation.
+        }
+
+        if (generation !== generationRef.current) {
+            return;
+        }
+
+        // Hide before cancelling so the element doesn't flash at its
+        // pre-animation position when the WAAPI fill is cleared.
+        element.style.display = "none";
+        animation.cancel();
+        setIsAnimating(false);
+    }, [id, storeMinimize, measureTitleBarHeight]);
+
+    const animateRestore = useCallback(async (buttonRect: DOMRect) => {
+        const element = windowRef.current;
+        const target = stateRef.current;
+        if (
+            element == null ||
+            target == null ||
+            buttonRect.width === 0 ||
+            buttonRect.height === 0
+        ) {
+            return;
+        }
+
+        const generation = ++generationRef.current;
+
+        setIsAnimating(true);
+
+        const titleBarHeight = titleBarHeightRef.current;
+
+        // WAAPI's fill:"both" applies the first keyframe instantly —
+        // no need for manual position styles. Only display needs a
+        // manual override (WAAPI can't un-hide a display:none element).
+        element.style.display = "";
+
+        element.getAnimations().forEach((animation) => animation.cancel());
+
+        const animation = element.animate(
+            [
+                {
+                    left: `${buttonRect.x}px`,
+                    top: `${buttonRect.y}px`,
+                    width: `${buttonRect.width}px`,
+                    height: `${titleBarHeight}px`,
+                },
+                {
+                    left: `${target.x}px`,
+                    top: `${target.y}px`,
+                    width: `${target.width}px`,
+                    height: `${titleBarHeight}px`,
+                },
+            ],
+            KEYFRAME_OPTIONS
+        );
+
+        try {
+            await animation.finished;
+        } catch {
+            // Cancelled by a newer animation.
+        }
+
+        if (generation !== generationRef.current) {
+            return;
+        }
+
+        // Clear the WAAPI fill so the last keyframe's values don't
+        // permanently override inline styles, then set the final
+        // position manually so React's style diff sees no change.
+        animation.cancel();
+        element.style.left = `${target.x}px`;
+        element.style.top = `${target.y}px`;
+        element.style.width = `${target.width}px`;
+        element.style.height = `${target.height}px`;
+
+        setIsAnimating(false);
+    }, []);
+
+    const animateMaximize = useCallback(async () => {
+        const element = windowRef.current;
+        if (element == null) {
+            return;
+        }
+
+        const generation = ++generationRef.current;
+        setIsAnimating(true);
+
+        const windowRect = element.getBoundingClientRect();
+        const maximizedRect = {
+            x: 0,
+            y: 0,
+            width: window.innerWidth,
+            height: window.innerHeight - TASKBAR_HEIGHT,
+        };
+
+        element.getAnimations().forEach((animation) => animation.cancel());
+
+        const animation = element.animate(
+            [
+                {
+                    left: `${windowRect.x}px`,
+                    top: `${windowRect.y}px`,
+                    width: `${windowRect.width}px`,
+                    height: `${windowRect.height}px`,
+                },
+                {
+                    left: `${maximizedRect.x}px`,
+                    top: `${maximizedRect.y}px`,
+                    width: `${maximizedRect.width}px`,
+                    height: `${maximizedRect.height}px`,
+                },
+            ],
+            KEYFRAME_OPTIONS
+        );
+
+        try {
+            await animation.finished;
+        } catch {
+            // Cancelled by a newer animation.
+        }
+
+        if (generation !== generationRef.current) {
+            return;
+        }
+
+        animation.cancel();
+        element.style.left = `${maximizedRect.x}px`;
+        element.style.top = `${maximizedRect.y}px`;
+        element.style.width = `${maximizedRect.width}px`;
+        element.style.height = `${maximizedRect.height}px`;
+
+        storeSetMaximized(true);
+        setIsAnimating(false);
+    }, [storeSetMaximized]);
+
+    const animateUnmaximize = useCallback(async () => {
+        const element = windowRef.current;
+        if (element == null) {
+            return;
+        }
+
+        const stored = store.getState().windows[id];
+        if (stored == null) {
+            return;
+        }
+
+        const generation = ++generationRef.current;
+        setIsAnimating(true);
+
+        const maximizedRect = {
+            x: 0,
+            y: 0,
+            width: window.innerWidth,
+            height: window.innerHeight - TASKBAR_HEIGHT,
+        };
+
+        element.getAnimations().forEach((animation) => animation.cancel());
+
+        const animation = element.animate(
+            [
+                {
+                    left: `${maximizedRect.x}px`,
+                    top: `${maximizedRect.y}px`,
+                    width: `${maximizedRect.width}px`,
+                    height: `${maximizedRect.height}px`,
+                },
+                {
+                    left: `${stored.x}px`,
+                    top: `${stored.y}px`,
+                    width: `${stored.width}px`,
+                    height: `${stored.height}px`,
+                },
+            ],
+            KEYFRAME_OPTIONS
+        );
+
+        try {
+            await animation.finished;
+        } catch {
+            // Cancelled by a newer animation.
+        }
+
+        if (generation !== generationRef.current) {
+            return;
+        }
+
+        animation.cancel();
+        element.style.left = `${stored.x}px`;
+        element.style.top = `${stored.y}px`;
+        element.style.width = `${stored.width}px`;
+        element.style.height = `${stored.height}px`;
+
+        storeSetMaximized(false);
+        setIsAnimating(false);
+    }, [id, storeSetMaximized]);
+
+    useEffect(() => {
+        const element = windowRef.current;
+        if (element == null) {
+            return;
+        }
+
+        const handleMinimize = () => {
+            animateMinimize();
+        };
+
+        const handleRestore = (event: Event) => {
+            const { buttonRect } = (
+                event as CustomEvent<{ buttonRect: DOMRect }>
+            ).detail;
+            animateRestore(buttonRect);
+        };
+
+        element.addEventListener("minimize-window", handleMinimize);
+        element.addEventListener("restore-window", handleRestore);
+        return () => {
+            element.removeEventListener("minimize-window", handleMinimize);
+            element.removeEventListener("restore-window", handleRestore);
+        };
+    }, [animateMinimize, animateRestore]);
+
+    return {
+        animateMaximize,
+        animateMinimize,
+        animateUnmaximize,
+        isAnimating,
+        windowRef,
+    };
+}
 
 export { Window };
